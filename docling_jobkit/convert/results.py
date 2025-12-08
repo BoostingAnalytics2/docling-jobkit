@@ -39,8 +39,10 @@ def _export_document_as_content(
     document = ExportDocumentResponse(filename=conv_res.input.file.name)
 
     if conv_res.status == ConversionStatus.SUCCESS:
+        # Use "artifacts" as the reference path for consistency with file export
+        artifacts_path = Path("artifacts")
         new_doc = conv_res.document._make_copy_with_refmode(
-            Path(), image_mode, page_no=None
+            artifacts_path, image_mode, page_no=None
         )
 
         # Create the different formats
