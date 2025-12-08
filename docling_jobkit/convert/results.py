@@ -9,7 +9,7 @@ import httpx
 
 from docling.datamodel.base_models import OutputFormat
 from docling.datamodel.document import ConversionResult, ConversionStatus
-from docling_core.types.doc import ImageRefMode
+from docling_core.types.doc import ImageRefMode, TableRefMode
 
 from docling_jobkit.datamodel.result import (
     DoclingTaskResult,
@@ -72,6 +72,7 @@ def _export_documents_as_files(
     export_txt: bool,
     export_doctags: bool,
     image_export_mode: ImageRefMode,
+    table_export_mode: TableRefMode,
     md_page_break_placeholder: str,
 ):
     success_count = 0
@@ -122,6 +123,7 @@ def _export_documents_as_files(
                     filename=fname,
                     artifacts_dir=artifacts_dir,
                     image_mode=image_export_mode,
+                    table_mode=table_export_mode,
                     page_break_placeholder=md_page_break_placeholder or None,
                 )
 
@@ -222,6 +224,7 @@ def process_export_results(
             export_txt=export_txt,
             export_doctags=export_doctags,
             image_export_mode=conversion_options.image_export_mode,
+            table_export_mode=conversion_options.table_export_mode,
             md_page_break_placeholder=conversion_options.md_page_break_placeholder,
         )
 
