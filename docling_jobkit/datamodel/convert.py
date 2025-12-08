@@ -23,7 +23,7 @@ from docling.datamodel.settings import (
     DEFAULT_PAGE_RANGE,
     PageRange,
 )
-from docling_core.types.doc import ImageRefMode
+from docling_core.types.doc import ImageRefMode, TableRefMode
 
 
 class PictureDescriptionLocal(BaseModel):
@@ -277,6 +277,18 @@ class ConvertDocumentsOptions(BaseModel):
             # pattern="embedded|placeholder|referenced",
         ),
     ] = ImageRefMode.EMBEDDED
+
+    table_export_mode: Annotated[
+        TableRefMode,
+        Field(
+            description=(
+                "Table export mode for markdown output. "
+                f"Allowed values: {', '.join([v.value for v in TableRefMode])}. "
+                "Optional, defaults to inline."
+            ),
+            examples=[TableRefMode.INLINE.value, TableRefMode.HTML_REFERENCED.value],
+        ),
+    ] = TableRefMode.INLINE
 
     do_ocr: Annotated[
         bool,
