@@ -33,6 +33,7 @@ def _export_document_as_content(
     export_txt: bool,
     export_doctags: bool,
     image_mode: ImageRefMode,
+    table_mode: TableRefMode,
     md_page_break_placeholder: str,
 ) -> ExportDocumentResponse:
     document = ExportDocumentResponse(filename=conv_res.input.file.name)
@@ -53,8 +54,22 @@ def _export_document_as_content(
                 image_mode=image_mode,
             )
         if export_md:
+            # For inbody responses with HTML_REFERENCED table mode,
+            # generate placeholder references (actual files only created in zip mode)
+            table_html_refs = None
+            if table_mode == TableRefMode.HTML_REFERENCED:
+                table_html_refs = {}
+                table_counter = 0
+                for table in new_doc.tables:
+                    table_counter += 1
+                    # Create reference path (files only exist when using zip output)
+                    html_filename = f"artifacts/table_{table_counter:06d}.html"
+                    table_html_refs[table.self_ref] = html_filename
+
             document.md_content = new_doc.export_to_markdown(
                 image_mode=image_mode,
+                table_mode=table_mode,
+                table_html_refs=table_html_refs,
                 page_break_placeholder=md_page_break_placeholder or None,
             )
         if export_doctags:
@@ -195,6 +210,7 @@ def process_export_results(
             export_txt=export_txt,
             export_doctags=export_doctags,
             image_mode=conversion_options.image_export_mode,
+            table_mode=conversion_options.table_export_mode,
             md_page_break_placeholder=conversion_options.md_page_break_placeholder,
         )
         task_result = ExportResult(
