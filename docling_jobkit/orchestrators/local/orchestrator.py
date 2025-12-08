@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import logging
 import tempfile
 import uuid
@@ -124,11 +125,49 @@ class LocalOrchestrator(BaseOrchestrator):
     async def delete_task(self, task_id: str):
         _log.info(f"Deleting result of task {task_id=}")
         if task_id in self._task_results:
-            del self._task_results[task_id]
+            # Clear the result to allow garbage collection
+            result = self._task_results.pop(task_id, None)
+            if result is not None:
+                # Clear any large data structures in the result
+                if hasattr(result, 'result') and result.result is not None:
+                    if hasattr(result.result, 'content'):
+                        result.result.content = None
+                del result
         await super().delete_task(task_id)
+        
+        # Trigger garbage collection after deleting task
+        gc.collect()
+        
+        # Free CUDA memory if many tasks have been deleted
+        self._maybe_free_cuda_memory()
+    
+    def _maybe_free_cuda_memory(self) -> None:
+        """Free CUDA memory if PyTorch with CUDA is available."""
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass
+        except Exception as e:
+            _log.debug(f"Error clearing CUDA memory: {e}")
 
     async def clear_converters(self):
+        _log.info("Clearing converters and freeing memory...")
         self.cm.clear_cache()
+        
+        # Also clear any lingering task results
+        old_results_count = len(self._task_results)
+        self._task_results.clear()
+        _log.info(f"Cleared {old_results_count} cached task results")
+        
+        # Force full garbage collection
+        gc.collect()
+        gc.collect()  # Run twice to handle cyclic references
+        
+        # Free CUDA memory
+        self._maybe_free_cuda_memory()
+        _log.info("Memory cleanup complete")
 
     async def check_connection(self):
         pass

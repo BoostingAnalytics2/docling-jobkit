@@ -1,4 +1,5 @@
 import enum
+import gc
 import hashlib
 import json
 import logging
@@ -131,7 +132,103 @@ class DoclingConverterManager:
         return _get_converter_from_hash
 
     def clear_cache(self):
-        self._get_converter_from_hash.cache_clear()
+        """Clear all cached converters and free GPU/CPU memory.
+        
+        This method:
+        1. Gets all cached converters before clearing the cache
+        2. Clears the initialized pipelines (which hold ML models)
+        3. Clears the LRU cache
+        4. Runs garbage collection
+        5. Frees CUDA memory if available
+        """
+        with self._cache_lock:
+            # Get cache info to find all cached converters
+            cache_info = self._get_converter_from_hash.cache_info()
+            _log.info(f"Clearing converter cache: {cache_info.currsize} converters cached")
+            
+            # Clear the initialized pipelines from all cached converters
+            # by iterating through the options map and getting each converter
+            converters_to_clear = []
+            for options_hash in list(self._options_map.keys()):
+                try:
+                    # Try to get converter from cache (won't create new one if not cached)
+                    converter = self._get_converter_from_hash(options_hash)
+                    converters_to_clear.append(converter)
+                except KeyError:
+                    pass
+            
+            # Clear pipelines from each converter
+            for converter in converters_to_clear:
+                if hasattr(converter, 'initialized_pipelines'):
+                    pipelines = converter.initialized_pipelines
+                    _log.info(f"Clearing {len(pipelines)} initialized pipelines")
+                    
+                    # Try to unload models from each pipeline
+                    for cache_key, pipeline in list(pipelines.items()):
+                        self._unload_pipeline_models(pipeline)
+                    
+                    # Clear the pipelines dict
+                    pipelines.clear()
+            
+            # Clear the options map
+            self._options_map.clear()
+            
+            # Clear the LRU cache
+            self._get_converter_from_hash.cache_clear()
+        
+        # Force garbage collection
+        gc.collect()
+        
+        # Free CUDA memory if available
+        self._free_cuda_memory()
+        
+        _log.info("Converter cache cleared and memory freed")
+    
+    def _unload_pipeline_models(self, pipeline: Any) -> None:
+        """Attempt to unload ML models from a pipeline to free memory."""
+        model_attrs = [
+            'preprocessing_model',
+            'ocr_model', 
+            'layout_model',
+            'table_model',
+            'assemble_model',
+            'reading_order_model',
+            'vlm_model',
+            'vlm',
+        ]
+        
+        for attr in model_attrs:
+            if hasattr(pipeline, attr):
+                model = getattr(pipeline, attr)
+                if model is not None:
+                    # Try to call unload if available
+                    if hasattr(model, 'unload'):
+                        try:
+                            model.unload()
+                        except Exception as e:
+                            _log.debug(f"Error unloading {attr}: {e}")
+                    # Set to None to allow GC
+                    try:
+                        setattr(pipeline, attr, None)
+                    except Exception:
+                        pass
+        
+        # Clear enrichment pipe if present
+        if hasattr(pipeline, 'enrichment_pipe'):
+            pipeline.enrichment_pipe = []
+    
+    def _free_cuda_memory(self) -> None:
+        """Free CUDA memory if PyTorch with CUDA is available."""
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                _log.info("CUDA memory cache cleared")
+        except ImportError:
+            pass
+        except Exception as e:
+            _log.debug(f"Error clearing CUDA memory: {e}")
 
     def get_converter(self, pdf_format_option: PdfFormatOption) -> DocumentConverter:
         with self._cache_lock:
