@@ -96,6 +96,7 @@ def _export_documents_as_files(
     failure_count = 0
 
     artifacts_dir = Path("artifacts/")  # will be relative to the fname
+    debug_dir = Path("debug/")  # for table images
 
     for conv_res in conv_results:
         if conv_res.status == ConversionStatus.SUCCESS:
@@ -142,6 +143,7 @@ def _export_documents_as_files(
                     image_mode=image_export_mode,
                     table_mode=table_export_mode,
                     page_break_placeholder=md_page_break_placeholder or None,
+                    debug_dir=debug_dir,
                 )
 
             # Export Document Tags format:
