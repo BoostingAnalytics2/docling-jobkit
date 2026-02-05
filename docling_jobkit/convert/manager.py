@@ -75,6 +75,15 @@ def _hash_pdf_format_option(pdf_format_option: PdfFormatOption) -> bytes:
             serialize_as_any=True, mode="json"
         )
 
+        # Explicitly serialize table_structure_options to ensure subclass fields are included
+        # (Pydantic's serialize_as_any may not propagate to nested models)
+        if hasattr(pdf_format_option.pipeline_options, "table_structure_options"):
+            tso = pdf_format_option.pipeline_options.table_structure_options
+            data["_table_structure_options"] = {
+                "type": type(tso).__name__,
+                **tso.model_dump(mode="json"),
+            }
+
     # Replace `pipeline_cls` with a string representation
     data["pipeline_cls"] = repr(data["pipeline_cls"])
 
