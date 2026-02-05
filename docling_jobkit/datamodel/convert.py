@@ -1,4 +1,5 @@
 # Define the input options for the API
+import os
 from typing import Annotated, Any, Optional
 
 from pydantic import AnyUrl, BaseModel, Field, PositiveInt, model_validator
@@ -25,6 +26,18 @@ from docling.datamodel.settings import (
     PageRange,
 )
 from docling_core.types.doc import ImageRefMode, TableRefMode
+
+
+def _get_default_table_structure_model() -> TableStructureModel:
+    """Get default table structure model from environment variables."""
+    if os.environ.get("DOCLING_USE_GLM_OCR_TABLES", "").lower() in ("true", "1", "yes"):
+        return TableStructureModel.GLM_OCR
+    if os.environ.get("DOCLING_USE_HUNYUAN_TABLES", "").lower() in ("true", "1", "yes"):
+        return TableStructureModel.HUNYUAN
+    return TableStructureModel.TABLEFORMER
+
+
+_DEFAULT_TABLE_STRUCTURE_MODEL = _get_default_table_structure_model()
 
 
 class PictureDescriptionLocal(BaseModel):
@@ -369,7 +382,7 @@ class ConvertDocumentsOptions(BaseModel):
             ),
             examples=[TableStructureModel.TABLEFORMER],
         ),
-    ] = TableStructureModel.TABLEFORMER
+    ] = _DEFAULT_TABLE_STRUCTURE_MODEL
 
     table_cell_matching: Annotated[
         bool,
