@@ -22,6 +22,8 @@ from docling.datamodel import vlm_model_specs
 from docling.datamodel.base_models import DocumentStream, InputFormat
 from docling.datamodel.document import ConversionResult
 from docling.datamodel.pipeline_options import (
+    GLMOCRTableStructureOptions,
+    HunyuanTableStructureOptions,
     OcrOptions,
     PdfBackend,
     PdfPipelineOptions,
@@ -29,6 +31,8 @@ from docling.datamodel.pipeline_options import (
     PictureDescriptionVlmOptions,
     ProcessingPipeline,
     TableFormerMode,
+    TableStructureModel,
+    TableStructureOptions,
     VlmPipelineOptions,
 )
 from docling.datamodel.pipeline_options_vlm_model import ApiVlmOptions, InlineVlmOptions
@@ -262,6 +266,38 @@ class DoclingConverterManager:
         if request.ocr_lang is not None:
             ocr_options.lang = request.ocr_lang
 
+        # Determine table structure options based on selected model
+        table_structure_model = getattr(request, 'table_structure_model', TableStructureModel.TABLEFORMER)
+        if isinstance(table_structure_model, str):
+            table_structure_model = TableStructureModel(table_structure_model)
+
+        if table_structure_model == TableStructureModel.HUNYUAN:
+            import os
+            hunyuan_url = os.environ.get("DOCLING_HUNYUAN_SERVER_URL", "http://localhost:8000")
+            hunyuan_scale = float(os.environ.get("DOCLING_HUNYUAN_SCALE", "3.0"))
+            table_structure_options = HunyuanTableStructureOptions(
+                server_url=hunyuan_url,
+                scale=hunyuan_scale,
+                mode=TableFormerMode(request.table_mode),
+                do_cell_matching=request.table_cell_matching,
+            )
+        elif table_structure_model == TableStructureModel.GLM_OCR:
+            import os
+            glm_ocr_url = os.environ.get("DOCLING_GLM_OCR_SERVER_URL", "http://localhost:8002")
+            glm_ocr_scale = float(os.environ.get("DOCLING_GLM_OCR_SCALE", "2.0"))
+            table_structure_options = GLMOCRTableStructureOptions(
+                server_url=glm_ocr_url,
+                scale=glm_ocr_scale,
+                mode=TableFormerMode(request.table_mode),
+                do_cell_matching=request.table_cell_matching,
+            )
+        else:
+            # Default: TableFormer
+            table_structure_options = TableStructureOptions(
+                mode=TableFormerMode(request.table_mode),
+                do_cell_matching=request.table_cell_matching,
+            )
+
         pipeline_options = PdfPipelineOptions(
             artifacts_path=artifacts_path,
             allow_external_plugins=self.config.allow_external_plugins,
@@ -274,12 +310,7 @@ class DoclingConverterManager:
             do_formula_enrichment=request.do_formula_enrichment,
             do_picture_classification=request.do_picture_classification,
             do_picture_description=request.do_picture_description,
-        )
-        pipeline_options.table_structure_options.mode = TableFormerMode(
-            request.table_mode
-        )
-        pipeline_options.table_structure_options.do_cell_matching = (
-            request.table_cell_matching
+            table_structure_options=table_structure_options,
         )
 
         if request.image_export_mode != ImageRefMode.PLACEHOLDER:

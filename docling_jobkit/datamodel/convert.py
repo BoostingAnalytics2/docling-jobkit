@@ -11,6 +11,7 @@ from docling.datamodel.pipeline_options import (
     PictureDescriptionBaseOptions,
     ProcessingPipeline,
     TableFormerMode,
+    TableStructureModel,
     TableStructureOptions,
 )
 from docling.datamodel.pipeline_options_vlm_model import (
@@ -356,6 +357,19 @@ class ConvertDocumentsOptions(BaseModel):
             # pattern="fast|accurate",
         ),
     ] = TableStructureOptions().mode
+
+    table_structure_model: Annotated[
+        TableStructureModel,
+        Field(
+            description=(
+                "Table structure model to use. String. "
+                f"Allowed values: {', '.join([v.value for v in TableStructureModel])}. "
+                "Optional, defaults to tableformer. "
+                "Note: 'hunyuan' and 'glm_ocr' require their respective servers to be running."
+            ),
+            examples=[TableStructureModel.TABLEFORMER],
+        ),
+    ] = TableStructureModel.TABLEFORMER
 
     table_cell_matching: Annotated[
         bool,
