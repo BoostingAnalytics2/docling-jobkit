@@ -439,6 +439,7 @@ class DoclingConverterManager:
             glm_ocr_opts = vlm_model_specs.GLM_OCR_API.model_copy()
             glm_ocr_opts.url = AnyUrl(f"{glm_ocr_url}/v1/chat/completions")
             pipeline_options.vlm_options = glm_ocr_opts
+            pipeline_options.enable_remote_services = True  # GLM-OCR requires remote API
 
         if request.vlm_pipeline_model_local is not None:
             pipeline_options.vlm_options = InlineVlmOptions.model_validate(
