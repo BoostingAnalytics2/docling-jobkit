@@ -95,6 +95,17 @@ def _hash_pdf_format_option(pdf_format_option: PdfFormatOption) -> bytes:
     options_hash = hashlib.sha1(
         serialized_data.encode(), usedforsecurity=False
     ).digest()
+
+    # Diagnostic logging for table structure options
+    if pdf_format_option.pipeline_options and hasattr(
+        pdf_format_option.pipeline_options, "table_structure_options"
+    ):
+        tso = pdf_format_option.pipeline_options.table_structure_options
+        _log.info(
+            f"_hash_pdf_format_option: table_structure_options type={type(tso).__name__}, "
+            f"hash={options_hash.hex()[:12]}"
+        )
+
     return options_hash
 
 
@@ -249,6 +260,12 @@ class DoclingConverterManager:
             options_hash = _hash_pdf_format_option(pdf_format_option)
             self._options_map[options_hash] = pdf_format_option
             converter = self._get_converter_from_hash(options_hash)
+            cache_info = self._get_converter_from_hash.cache_info()
+            _log.info(
+                f"get_converter: hash={options_hash.hex()[:12]}, "
+                f"cache hits={cache_info.hits}, misses={cache_info.misses}, "
+                f"size={cache_info.currsize}/{cache_info.maxsize}"
+            )
         return converter
 
     def _parse_standard_pdf_opts(
@@ -307,6 +324,11 @@ class DoclingConverterManager:
                 mode=TableFormerMode(request.table_mode),
                 do_cell_matching=request.table_cell_matching,
             )
+
+        _log.info(
+            f"_parse_standard_pdf_opts: selected table_structure_model={table_structure_model.value}, "
+            f"options type={type(table_structure_options).__name__}"
+        )
 
         pipeline_options = PdfPipelineOptions(
             artifacts_path=artifacts_path,
