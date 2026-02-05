@@ -3,6 +3,7 @@ import gc
 import hashlib
 import json
 import logging
+import os
 import re
 import sys
 import threading
@@ -11,7 +12,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import AnyUrl, BaseModel
 
 from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
 from docling.backend.docling_parse_v2_backend import DoclingParseV2DocumentBackend
@@ -399,6 +400,14 @@ class DoclingConverterManager:
             == vlm_model_specs.VlmModelType.GRANITE_VISION_OLLAMA
         ):
             pipeline_options.vlm_options = vlm_model_specs.GRANITE_VISION_OLLAMA
+
+        elif request.vlm_pipeline_model == vlm_model_specs.VlmModelType.GLM_OCR:
+            glm_ocr_url = os.environ.get(
+                "DOCLING_GLM_OCR_SERVER_URL", "http://localhost:8002"
+            )
+            glm_ocr_opts = vlm_model_specs.GLM_OCR_API.model_copy()
+            glm_ocr_opts.url = AnyUrl(f"{glm_ocr_url}/v1/chat/completions")
+            pipeline_options.vlm_options = glm_ocr_opts
 
         if request.vlm_pipeline_model_local is not None:
             pipeline_options.vlm_options = InlineVlmOptions.model_validate(
