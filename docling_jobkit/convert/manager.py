@@ -439,6 +439,7 @@ class DoclingConverterManager:
             glm_ocr_opts = vlm_model_specs.GLM_OCR_API.model_copy()
             glm_ocr_opts.url = AnyUrl(f"{glm_ocr_url}/v1/chat/completions")
             glm_ocr_opts.timeout = 600  # Cold-start: proxy needs ~300s to start vLLM backend
+            glm_ocr_opts.concurrency = 6  # Match vLLM --max-num-seqs
             pipeline_options.vlm_options = glm_ocr_opts
             pipeline_options.enable_remote_services = True  # GLM-OCR requires remote API
 
